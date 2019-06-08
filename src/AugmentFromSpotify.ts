@@ -1,4 +1,3 @@
-import { IAlbumSearchQuery, SpotifyClient } from './spotify/SpotifyClient';
 import * as assert from 'assert';
 
 import * as Debug from 'debug';
@@ -6,9 +5,8 @@ import * as Debug from 'debug';
 import * as spotify from './spotify/spotify.types';
 import * as mb from 'musicbrainz-api';
 
-import { similarity, removeBrackets } from './StringUtils'
-import { ISpotifyConfig } from './spotify/SpotifyClient';
-import { IMusicBrainzConfig } from 'musicbrainz-api';
+import { similarity, removeBrackets } from './StringUtils';
+import { IAlbumSearchQuery, SpotifyClient, ISpotifyConfig } from './spotify/SpotifyClient';
 
 const debug = Debug('musicbrainz:augment:spotify');
 
@@ -19,7 +17,7 @@ const releaseDeltaSettings = {
 
 export interface IAugmentationConfig {
   spotify: ISpotifyConfig;
-  musicBrainz?: IMusicBrainzConfig;
+  musicBrainz?: mb.IMusicBrainzConfig;
   options: {
     validateSpotifyLink: true;
   }
@@ -27,90 +25,16 @@ export interface IAugmentationConfig {
 
 const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups'];
 
-const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-api)`;
+const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
 
-const editNoteSpotifyIsrcs = `ISRCs looked up using Spotify API, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-api)`;
+const editNoteSpotifyIsrcs = `ISRCs looked up using Spotify API, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
 
 export class AugmentFromSpotify {
-
-  private spotifyClient: SpotifyClient;
-  private mbClient: mb.MusicBrainzApi;
-
-  public skipFilledIsrcs = false;
-
-  public constructor(private config: IAugmentationConfig) {
-    this.spotifyClient = SpotifyClient.instance(config.spotify);
-    this.mbClient = new mb.MusicBrainzApi(config.musicBrainz);
-  }
-
-  public getMusicBrainzRelease(mbid_release: string):  Promise<mb.IRelease> {
-    return this.mbClient.getRelease(mbid_release, releaseIncludes);
-  }
-
-  public async getSpotifyAlbum(albumId: string):  Promise<spotify.IAlbum> {
-    const album = await this.spotifyClient.getAlbum(albumId);
-    await this.spotifyClient.getRemainingTracks(album);
-    return album;
-  }
-
-  public async searchSpotifyAlbums(mbid_release: string): Promise<string[]> {
-
-    const release = await this.mbClient.getRelease(mbid_release, releaseIncludes);
-    assert.ok(release.media, 'release.media should be defined');
-    let spotifyIds: string[] = [];
-    if (release.relations) {
-      spotifyIds = release.relations
-        .filter(rel => rel['target-type'] === 'url')
-        .filter(rel => rel.url.resource.startsWith('https://open.spotify.com/album/'))
-        .map(rel => rel.url.resource.substring(31));
-
-      if (this.config.options.validateSpotifyLink) {
-        // Validate Spotify link
-        let validatedIds = [];
-
-        for(const spotifyId of spotifyIds) {
-          const album = await this.getSpotifyAlbum(spotifyId);
-          if (AugmentFromSpotify.isSameRelease(release, album)) {
-            validatedIds.push(spotifyId);
-          } else {
-            debug(`It looks like MB-release ${release.id} is pointing to a different Spotify release`);
-          }
-        }
-        spotifyIds = validatedIds;
-      }
-     }
-
-    if (spotifyIds.length === 0) {
-      const query: IAlbumSearchQuery = {};
-
-      if (release['artist-credit'] && release['artist-credit'].length >= 1) {
-        query.artist = release['artist-credit'][0].name; // Only use the first artist credit
-      }
-
-      query.album = release.title;
-
-      const searchResult = await this.spotifyClient.searchAlbums(query);
-
-      if (searchResult.albums) {
-        await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
-
-        spotifyIds = searchResult.albums.items
-          .filter(album => AugmentFromSpotify.isSameRelease(release, album))
-          .map(album => album.id);
-      }
-    }
-
-    if (spotifyIds.length === 0) {
-      debug(`No releases found for: ${release.title}`);
-    }
-
-    return spotifyIds;
-  }
 
   public static isSameRelease(mbRelease: mb.IRelease, spotifyAlbum: spotify.IAlbum): boolean {
 
     const mbTotalTracks = AugmentFromSpotify.countMbReleaseTracks(mbRelease);
-    if (mbTotalTracks !== spotifyAlbum.total_tracks ) {
+    if (mbTotalTracks !== spotifyAlbum.total_tracks) {
       debug(`Total number of track mismatch ${mbTotalTracks} vs ${spotifyAlbum.total_tracks}`);
       return false;
     }
@@ -171,6 +95,97 @@ export class AugmentFromSpotify {
     return trackCount;
   }
 
+  /**
+   * 'ushm91328810' becomes 'USHM91328810'
+   * 'NL-Z07-08-00012' becomes 'NLZ070800012'
+   * @param isrc
+   */
+  public static normalizeSpotifyIsrc(isrc: string) {
+    return isrc.trim().toUpperCase().replace(/-/g, '');
+  }
+
+  private static getSpotifyTrack(album: spotify.IAlbum, discNr: number, trackNr: number): spotify.ITrack {
+    for (const track of album.tracks.items) {
+      if (track.disc_number === discNr && track.track_number === trackNr) {
+        return track;
+      }
+    }
+  }
+
+  public skipFilledIsrcs = false;
+
+  private spotifyClient: SpotifyClient;
+  private mbClient: mb.MusicBrainzApi;
+
+  public constructor(private config: IAugmentationConfig) {
+    this.spotifyClient = SpotifyClient.instance(config.spotify);
+    this.mbClient = new mb.MusicBrainzApi(config.musicBrainz);
+  }
+
+  public getMusicBrainzRelease(mbid_release: string): Promise<mb.IRelease> {
+    return this.mbClient.getRelease(mbid_release, releaseIncludes);
+  }
+
+  public async getSpotifyAlbum(albumId: string): Promise<spotify.IAlbum> {
+    const album = await this.spotifyClient.getAlbum(albumId);
+    await this.spotifyClient.getRemainingTracks(album);
+    return album;
+  }
+
+  public async searchSpotifyAlbums(mbid_release: string): Promise<string[]> {
+
+    const release = await this.mbClient.getRelease(mbid_release, releaseIncludes);
+    assert.ok(release.media, 'release.media should be defined');
+    let spotifyIds: string[] = [];
+    if (release.relations) {
+      spotifyIds = release.relations
+        .filter(rel => rel['target-type'] === 'url')
+        .filter(rel => rel.url.resource.startsWith('https://open.spotify.com/album/'))
+        .map(rel => rel.url.resource.substring(31));
+
+      if (this.config.options.validateSpotifyLink) {
+        // Validate Spotify link
+        const validatedIds = [];
+
+        for (const spotifyId of spotifyIds) {
+          const album = await this.getSpotifyAlbum(spotifyId);
+          if (AugmentFromSpotify.isSameRelease(release, album)) {
+            validatedIds.push(spotifyId);
+          } else {
+            debug(`It looks like MB-release ${release.id} is pointing to a different Spotify release`);
+          }
+        }
+        spotifyIds = validatedIds;
+      }
+     }
+
+    if (spotifyIds.length === 0) {
+      const query: IAlbumSearchQuery = {};
+
+      if (release['artist-credit'] && release['artist-credit'].length >= 1) {
+        query.artist = release['artist-credit'][0].name; // Only use the first artist credit
+      }
+
+      query.album = release.title;
+
+      const searchResult = await this.spotifyClient.searchAlbums(query);
+
+      if (searchResult.albums) {
+        await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
+
+        spotifyIds = searchResult.albums.items
+          .filter(album => AugmentFromSpotify.isSameRelease(release, album))
+          .map(album => album.id);
+      }
+    }
+
+    if (spotifyIds.length === 0) {
+      debug(`No releases found for: ${release.title}`);
+    }
+
+    return spotifyIds;
+  }
+
   public async addIsrcsToRelease(mbid_release: string, spotifyAlbumId: string): Promise<void> {
 
     const release = await this.mbClient.getRelease(mbid_release, releaseIncludes);
@@ -206,7 +221,7 @@ export class AugmentFromSpotify {
           debug(`Link recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]`);
           try {
             await this.mbClient.addSpotifyIdToRecording(track.recording, spotifyTrack.id, editNoteSpotifyUrl);
-          } catch(err) {
+          } catch (err) {
             debug(`Failed to add Spotify link for recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]: ${err.message}`);
           }
         }
@@ -256,7 +271,7 @@ export class AugmentFromSpotify {
           debug(`Link recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]`);
           try {
             await this.mbClient.addSpotifyIdToRecording(track.recording, spotifyTrack.id, editNoteSpotifyUrl);
-          } catch(err) {
+          } catch (err) {
             debug(`Failed to add Spotify link for recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]: ${err.message}`);
           }
         }
@@ -277,26 +292,8 @@ export class AugmentFromSpotify {
     if (spotAlbumIds.length > 0) {
       await this.augmentReleaseWithSpotifyAlbum(mbid_release, spotAlbumIds[0]);
     } else {
-      console.warn(`Could not find album mbid=${mbid_release})`);
-    }
-  }
-
-  /**
-   * 'ushm91328810' becomes 'USHM91328810'
-   * 'NL-Z07-08-00012' becomes 'NLZ070800012'
-   * @param isrc
-   */
-  public static normalizeSpotifyIsrc(isrc: string) {
-    return isrc.trim().toUpperCase().replace(/-/g, '');
-  }
-
-  private static getSpotifyTrack(album: spotify.IAlbum, discNr: number, trackNr: number): spotify.ITrack {
-    for (const track of album.tracks.items) {
-      if (track.disc_number === discNr && track.track_number === trackNr) {
-        return track;
-      }
+      debug(`Warning: Could not find album mbid=${mbid_release})`);
     }
   }
 
 }
-

@@ -2,6 +2,9 @@ test/
 node_modules/
 coverage/
 src/
+*.iml
 .github
 .nyc_output/
-*.iml
+.travis.yml
+tsconfig.json
+tslint.json

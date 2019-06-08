@@ -69,6 +69,13 @@ let singleton: SpotifyClient;
 
 export class SpotifyClient {
 
+  public static instance(config: ISpotifyConfig): SpotifyClient {
+    if (!singleton) {
+      singleton = new SpotifyClient(config);
+    }
+    return singleton;
+  }
+
   private static scopes = ["playlist-read-private", "user-read-private", "user-read-email", "playlist-read-collaborative", "user-follow-modify", "user-library-read", "user-read-recently-played"];
 
   /**
@@ -89,13 +96,6 @@ export class SpotifyClient {
    */
   private clientTokens = {};
 
-  public static instance(config: ISpotifyConfig): SpotifyClient {
-    if(!singleton) {
-      singleton = new SpotifyClient(config);
-    }
-    return singleton;
-  }
-
   private constructor(config: ISpotifyConfig) {
     this.config = config;
     this.tokenPath = Path.resolve(__dirname, "../../", this.config.tokenFile);
@@ -104,8 +104,8 @@ export class SpotifyClient {
 
   public async isUserLoginRequired(): Promise<boolean> {
     try {
-      return !await this.getRpcApi()
-    } catch(err) {
+      return !await this.getRpcApi();
+    } catch (err) {
         return true;
     }
   }
@@ -186,7 +186,7 @@ export class SpotifyClient {
 
   public async getAlbum(albumId: string): Promise<spotify.IAlbum> {
     const album = await this.apiCall<spotify.IAlbum>('getAlbum', arguments);
-    return await this.getRemainingTracks(album);
+    return this.getRemainingTracks(album);
   }
 
   public getTrack(trackId: string): Promise<spotify.ITrack> {
