@@ -1,4 +1,3 @@
-import { IAlbumSearchQuery, SpotifyClient } from './spotify/SpotifyClient';
 import * as assert from 'assert';
 
 import * as Debug from 'debug';
@@ -6,8 +5,8 @@ import * as Debug from 'debug';
 import * as spotify from './spotify/spotify.types';
 import * as mb from 'musicbrainz-api';
 
-import { similarity, removeBrackets } from './StringUtils'
-import { ISpotifyConfig } from './spotify/SpotifyClient';
+import { similarity, removeBrackets } from './StringUtils';
+import { IAlbumSearchQuery, SpotifyClient, ISpotifyConfig } from './spotify/SpotifyClient';
 import { IMusicBrainzConfig } from 'musicbrainz-api';
 
 const debug = Debug('musicbrainz:augment:spotify');
@@ -27,9 +26,9 @@ export interface IAugmentationConfig {
 
 const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups'];
 
-const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-api)`;
+const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
 
-const editNoteSpotifyIsrcs = `ISRCs looked up using Spotify API, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-api)`;
+const editNoteSpotifyIsrcs = `ISRCs looked up using Spotify API, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
 
 export class AugmentFromSpotify {
 
