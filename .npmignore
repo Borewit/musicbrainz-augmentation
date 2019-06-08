@@ -2,6 +2,7 @@ test/
 node_modules/
 coverage/
 src/
+*.iml
 .github
 .nyc_output/
 .travis.yml
