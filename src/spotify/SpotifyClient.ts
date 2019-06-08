@@ -98,7 +98,7 @@ export class SpotifyClient {
 
   private constructor(config: ISpotifyConfig) {
     this.config = config;
-    this.tokenPath = Path.resolve(__dirname, "../../", this.config.tokenFile);
+    this.tokenPath = this.config.tokenFile;
     debug("Spotify token path: %s", this.tokenPath);
   }
 
