@@ -1,6 +1,6 @@
 {
   "name": "musicbrainz-augmentation",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MusicBrainz metadata augmentation",
   "main": "src/index.js",
   "author": {
