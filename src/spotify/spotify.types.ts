@@ -11,10 +11,12 @@ export interface ILimitedResult<T> {
 /**
  * provider: Identifier like 'spotify'
  */
-export type ExternalIds = { [provider: string]: string; }
-export type ExternalUrls = { [provider: string]: string; }
+export interface IExternalIds { [provider: string]: string; }
+export interface IExternalUrls { [provider: string]: string; }
 
 export interface IUser {
+  id: string;
+  display_name: string;
 }
 
 export interface IImage {
@@ -40,8 +42,8 @@ export interface IAlbum {
   album_type: AlbumType;
   artists: IArtist[];
   available_markets: string[];
-  external_ids: ExternalIds;
-  external_urls: ExternalUrls;
+  external_ids: IExternalIds;
+  external_urls: IExternalUrls;
   release_date: string;
   release_date_precision: ReleaseDatePrecision;
   type: AlbumType;
@@ -59,8 +61,8 @@ export interface ITrack {
   disc_number: number;
   duration_ms: number;
   explicit: boolean;
-  external_ids: ExternalIds;
-  external_urls: ExternalUrls;
+  external_ids: IExternalIds;
+  external_urls: IExternalUrls;
   href: string;
   is_local: boolean;
   name: string;

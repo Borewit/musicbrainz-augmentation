@@ -4,4 +4,6 @@ coverage/
 src/
 .github
 .nyc_output/
-*.iml
+.travis.yml
+tsconfig.json
+tslint.json
