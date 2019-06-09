@@ -42,8 +42,6 @@ export class AugmentFromSpotify {
     for (const medium of mbRelease.media) {
       for (const track of medium.tracks) {
         debug(`medium pos=${medium.position}, track: pos=${track.position},title='${track.title}' mbid=${track.id}`);
-        const recording = track.recording;
-        debug(`recording:     title='${recording.title}' mbid=${ recording.id}`);
         const spotifyTrack = AugmentFromSpotify.getSpotifyTrack(spotifyAlbum, medium.position, track.position);
         if (!spotifyTrack) {
           debug(`Track not found in Spotify release: medium=${medium.position}, track=${track.position}`);
@@ -73,11 +71,17 @@ export class AugmentFromSpotify {
           }
         }
 
-        const delta = spotifyTrack.duration_ms - track.recording.length;
-        if (delta > releaseDeltaSettings.maxDeltaTrackDuration) {
+        const deltaTrackLength = spotifyTrack.duration_ms - track.length;
+        if (deltaTrackLength > releaseDeltaSettings.maxDeltaTrackDuration) {
           debug(`Rec: score=${score}`);
-          debug(`Track delta to high ${delta}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
-          return false;
+          debug(`Track delta to high ${deltaTrackLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
+
+          const deltaRecordingLength = spotifyTrack.duration_ms - track.recording.length;
+          if (deltaRecordingLength > releaseDeltaSettings.maxDeltaTrackDuration) {
+            debug(`Rec: score=${score}`);
+            debug(`Recording delta to high ${deltaRecordingLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
+            return false;
+          }
         }
       }
     }

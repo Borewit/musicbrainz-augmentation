@@ -40,5 +40,13 @@ describe('Test bot account', () => {
 
   });
 
+  describe('Augment', () => {
+
+    it('Joy Wellboy - Wedding {13 track version}', async () => {
+      const spotifyAlbums = await augment.searchSpotifyAlbums('c1a790b8-d06f-4f0c-8981-ff6f3236a07c');
+      assert.deepEqual(spotifyAlbums, ['0J6r9xiLQ9RGEQ7OPyO7oZ']);
+    });
+  });
+
 })
 ;
