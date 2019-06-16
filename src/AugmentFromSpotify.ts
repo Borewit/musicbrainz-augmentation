@@ -23,7 +23,7 @@ export interface IAugmentationConfig {
   }
 }
 
-const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups'];
+const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups', 'aliases'];
 
 const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
 
@@ -161,30 +161,51 @@ export class AugmentFromSpotify {
         }
         spotifyIds = validatedIds;
       }
-     }
+    }
+
+    let artistNames: string[] = [];
 
     if (spotifyIds.length === 0) {
       const query: IAlbumSearchQuery = {};
 
       if (release['artist-credit'] && release['artist-credit'].length >= 1) {
+        for (const artistCredit of release['artist-credit']) {
+          artistNames.push(artistCredit.name);
+          artistNames.push(artistCredit.artist.name);
+          for (const alias of artistCredit.artist.aliases) {
+            artistNames.push(alias.name);
+          }
+        }
         query.artist = release['artist-credit'][0].name; // Only use the first artist credit
       }
 
+      artistNames = artistNames.filter((v, i, a) => a.indexOf(v) === i);
+
       query.album = release.title;
 
-      const searchResult = await this.spotifyClient.searchAlbums(query);
+      for(const artistName of artistNames) {
+        query.artist = artistName;
+        const searchResult = await this.spotifyClient.searchAlbums(query);
 
-      if (searchResult.albums) {
-        await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
+        if (searchResult.albums) {
+          await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
 
-        spotifyIds = searchResult.albums.items
-          .filter(album => AugmentFromSpotify.isSameRelease(release, album))
-          .map(album => album.id);
+          if (searchResult.albums.total === 0) {
+            debug(`No releases found for: ${query.artist} - ${release.title}`);
+          } else {
+            debug(`Found ${searchResult.albums.total} releases for: ${query.artist} - ${release.title}`);
+            spotifyIds = searchResult.albums.items
+              .filter(album => AugmentFromSpotify.isSameRelease(release, album))
+              .map(album => album.id);
+
+            break;
+          }
+        }
       }
     }
 
     if (spotifyIds.length === 0) {
-      debug(`No releases found for: ${release.title}`);
+      debug(`No releases found for: ${release['artist-credit'][0].name} - ${release.title}`);
     }
 
     return spotifyIds;
@@ -204,7 +225,7 @@ export class AugmentFromSpotify {
       for (const track of medium.tracks) {
         debug(`medium pos=${medium.position}, track: pos=${track.position},title='${track.title}' mbid=${track.id}`);
         const recording = track.recording;
-        debug(`recording:     title='${recording.title}' mbid=${ recording.id}`);
+        debug(`recording:     title='${recording.title}' mbid=${recording.id}`);
         let spotifyTrack = AugmentFromSpotify.getSpotifyTrack(spotifyAlbum, medium.position, track.position);
         if (spotifyTrack) {
           // Get track with more detail (from ISRC)
@@ -215,7 +236,7 @@ export class AugmentFromSpotify {
             debug(`spotify track: title='${spotifyTrack.name}' id=${spotifyTrack.id}, isrc=${spotify_isrc}`);
             assert(recording.isrcs, 'Expect recording.isrcs to be defined');
             if (this.skipFilledIsrcs && recording.isrcs.find(isrc => isrc === spotify_isrc)) {
-              debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${ spotifyTrack.id}, isrc=${spotify_isrc}`);
+              debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
             } else {
               const xmlRecording = xmlMetadata.pushRecording(recording.id);
               xmlRecording.isrcList.pushIsrc(spotify_isrc);
@@ -254,7 +275,7 @@ export class AugmentFromSpotify {
       for (const track of medium.tracks) {
         debug(`medium pos=${medium.position}, track: pos=${track.position},title='${track.title}' mbid=${track.id}`);
         const recording = track.recording;
-        debug(`recording:     title='${recording.title}' mbid=${ recording.id}`);
+        debug(`recording:     title='${recording.title}' mbid=${recording.id}`);
         let spotifyTrack = AugmentFromSpotify.getSpotifyTrack(spotifyAlbum, medium.position, track.position);
         if (spotifyTrack) {
           // Get track with more detail (from ISRC)
@@ -284,7 +305,7 @@ export class AugmentFromSpotify {
   }
 
   public async augmentArtist(artistId: string) {
-    const artist = await this.mbClient.getArtist(artistId, ["releases"]);
+    const artist = await this.mbClient.getArtist(artistId, ['releases']);
     assert.strictEqual(artist.id, artistId);
     for (const release of artist.releases) {
       this.augmentRelease(release.id);

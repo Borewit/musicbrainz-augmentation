@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "debug": "^4.1.1",
-    "musicbrainz-api": "^0.3.8",
+    "musicbrainz-api": "^0.3.9",
     "spotify-web-api-node": "^4.0.0"
   },
   "repository": {

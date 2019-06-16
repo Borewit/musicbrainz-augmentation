@@ -42,6 +42,11 @@ describe('Test bot account', () => {
 
   describe('Augment', () => {
 
+    it('Rainer Scheuerenbrand - Diosana', async () => {
+      const spotifyAlbums = await augment.searchSpotifyAlbums('e1e19926-ea67-4155-b8b5-0705ba832d8d');
+      assert.deepEqual(spotifyAlbums, ['5mlqXNTiKfWpX6Yldsdwjy']);
+    });
+
     it('Joy Wellboy - Wedding {13 track version}', async () => {
       const spotifyAlbums = await augment.searchSpotifyAlbums('c1a790b8-d06f-4f0c-8981-ff6f3236a07c');
       assert.deepEqual(spotifyAlbums, ['0J6r9xiLQ9RGEQ7OPyO7oZ']);
