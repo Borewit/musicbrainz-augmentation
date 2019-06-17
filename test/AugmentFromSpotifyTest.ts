@@ -51,6 +51,12 @@ describe('Test bot account', () => {
       const spotifyAlbums = await augment.searchSpotifyAlbums('c1a790b8-d06f-4f0c-8981-ff6f3236a07c');
       assert.deepEqual(spotifyAlbums, ['0J6r9xiLQ9RGEQ7OPyO7oZ']);
     });
+
+    it('L.A. Salami - Another Shade of Blue', async () => {
+      const spotifyAlbums = await augment.searchSpotifyAlbums('20e3e2fa-57e4-4c78-817b-86e0cb160eac');
+      assert.deepEqual(spotifyAlbums, ['75eTM88MOWx11QY8V2bPiD']);
+    });
+
   });
 
 })

@@ -23,6 +23,10 @@ export interface IAugmentationConfig {
   }
 }
 
+function unique(v: string, i: number, a: string[]) {
+  return a.indexOf(v) === i;
+}
+
 const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups', 'aliases'];
 
 const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
@@ -76,11 +80,13 @@ export class AugmentFromSpotify {
           debug(`Rec: score=${score}`);
           debug(`Track delta to high ${deltaTrackLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
 
-          const deltaRecordingLength = spotifyTrack.duration_ms - track.recording.length;
-          if (deltaRecordingLength > releaseDeltaSettings.maxDeltaTrackDuration) {
-            debug(`Rec: score=${score}`);
-            debug(`Recording delta to high ${deltaRecordingLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
-            return false;
+          if (track.recording.length) {
+            const deltaRecordingLength = spotifyTrack.duration_ms - track.recording.length;
+            if (deltaRecordingLength > releaseDeltaSettings.maxDeltaTrackDuration) {
+              debug(`Rec: score=${score}`);
+              debug(`Recording delta to high ${deltaRecordingLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
+              return false;
+            }
           }
         }
       }
@@ -164,9 +170,9 @@ export class AugmentFromSpotify {
     }
 
     let artistNames: string[] = [];
+    let titles: string[] = [];
 
     if (spotifyIds.length === 0) {
-      const query: IAlbumSearchQuery = {};
 
       if (release['artist-credit'] && release['artist-credit'].length >= 1) {
         for (const artistCredit of release['artist-credit']) {
@@ -176,31 +182,43 @@ export class AugmentFromSpotify {
             artistNames.push(alias.name);
           }
         }
-        query.artist = release['artist-credit'][0].name; // Only use the first artist credit
       }
 
-      artistNames = artistNames.filter((v, i, a) => a.indexOf(v) === i);
+      artistNames = artistNames.filter(unique);
 
-      query.album = release.title;
+      titles.push(release.title);
+      titles.push(release.title.replace(/ *\([^)]*\) */g, "").trim());
+      titles = titles.filter(unique).filter(s => s.length > 0);
 
-      for(const artistName of artistNames) {
-        query.artist = artistName;
-        const searchResult = await this.spotifyClient.searchAlbums(query);
+      for (const title of titles) {
 
-        if (searchResult.albums) {
-          await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
+        for (const artistName of artistNames) {
 
-          if (searchResult.albums.total === 0) {
-            debug(`No releases found for: ${query.artist} - ${release.title}`);
-          } else {
-            debug(`Found ${searchResult.albums.total} releases for: ${query.artist} - ${release.title}`);
-            spotifyIds = searchResult.albums.items
-              .filter(album => AugmentFromSpotify.isSameRelease(release, album))
-              .map(album => album.id);
+          const query: IAlbumSearchQuery = {
+            album: title,
+            artist: artistName
+          };
 
-            break;
+          query.artist = artistName;
+          const searchResult = await this.spotifyClient.searchAlbums(query);
+
+          if (searchResult.albums) {
+            await Promise.all(searchResult.albums.items.map(album => this.spotifyClient.getRemainingTracks(album)));
+
+            if (searchResult.albums.total === 0) {
+              debug(`No releases found for: ${query.artist} - ${release.title}`);
+            } else {
+              debug(`Found ${searchResult.albums.total} releases for: ${query.artist} - ${release.title}`);
+              spotifyIds = searchResult.albums.items
+                .filter(album => AugmentFromSpotify.isSameRelease(release, album))
+                .map(album => album.id);
+
+              break;
+            }
           }
         }
+        if (spotifyIds.length > 0)
+          break;
       }
     }
 
