@@ -3,6 +3,7 @@
   "compilerOptions": {
     "sourceMap": true,
     "outDir": "../lib",
-    "declaration": true
+    "declaration": true,
+    "resolveJsonModule": true
   }
 }
