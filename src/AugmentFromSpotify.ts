@@ -303,8 +303,9 @@ export class AugmentFromSpotify {
             const spotify_isrc = AugmentFromSpotify.normalizeSpotifyIsrc(spotifyTrack.external_ids.isrc);
             debug(`spotify track: title='${spotifyTrack.name}' id=${spotifyTrack.id}, isrc=${spotify_isrc}`);
             assert(recording.isrcs, 'Expect recording.isrcs to be defined');
-            if (this.skipFilledIsrcs && recording.isrcs.find(isrc => isrc === spotify_isrc)) {
+            if (recording.isrcs.indexOf(spotify_isrc) >= 0) {
               debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
+              assert(recording.isrcs, 'Expect recording.isrcs to be defined');
             } else {
               debug(`Add ISRC to recording='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
               recording.isrcs.push(spotify_isrc);
