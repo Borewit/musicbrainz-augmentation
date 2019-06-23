@@ -8,6 +8,8 @@ import * as mb from 'musicbrainz-api';
 import { similarity, removeBrackets } from './StringUtils';
 import { IAlbumSearchQuery, SpotifyClient, ISpotifyConfig } from './spotify/SpotifyClient';
 
+const pjson = require('../package.json');
+
 const debug = Debug('musicbrainz:augment:spotify');
 
 const releaseDeltaSettings = {
@@ -29,9 +31,9 @@ function unique(v: string, i: number, a: string[]) {
 
 const releaseIncludes: mb.Includes[] = ['recordings', 'artists', 'artist-credits', 'isrcs', 'url-rels', 'release-groups', 'aliases'];
 
-const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
+const codeReference = `musicbrainz-augmentation v${pjson.version}, https://github.com/Borewit/musicbrainz-augmentation`;
 
-const editNoteSpotifyIsrcs = `ISRCs looked up using Spotify API, based on release/album similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names. Script is using on musicbrainz-api (https://github.com/Borewit/musicbrainz-augmentation)`;
+const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album composition similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names.\n${codeReference}`;
 
 export class AugmentFromSpotify {
 
@@ -303,8 +305,9 @@ export class AugmentFromSpotify {
             const spotify_isrc = AugmentFromSpotify.normalizeSpotifyIsrc(spotifyTrack.external_ids.isrc);
             debug(`spotify track: title='${spotifyTrack.name}' id=${spotifyTrack.id}, isrc=${spotify_isrc}`);
             assert(recording.isrcs, 'Expect recording.isrcs to be defined');
-            if (this.skipFilledIsrcs && recording.isrcs.find(isrc => isrc === spotify_isrc)) {
+            if (recording.isrcs.indexOf(spotify_isrc) >= 0) {
               debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
+              assert(recording.isrcs, 'Expect recording.isrcs to be defined');
             } else {
               debug(`Add ISRC to recording='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
               recording.isrcs.push(spotify_isrc);

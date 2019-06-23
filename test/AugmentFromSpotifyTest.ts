@@ -38,10 +38,6 @@ describe('Test bot account', () => {
       assert.deepEqual(spotifyAlbums, ['3tDHghTVfKIRwoZ2cVDhdf']);
     });
 
-  });
-
-  describe('Augment', () => {
-
     it('Rainer Scheuerenbrand - Diosana', async () => {
       const spotifyAlbums = await augment.searchSpotifyAlbums('e1e19926-ea67-4155-b8b5-0705ba832d8d');
       assert.deepEqual(spotifyAlbums, ['5mlqXNTiKfWpX6Yldsdwjy']);
@@ -55,6 +51,26 @@ describe('Test bot account', () => {
     it('L.A. Salami - Another Shade of Blue', async () => {
       const spotifyAlbums = await augment.searchSpotifyAlbums('20e3e2fa-57e4-4c78-817b-86e0cb160eac');
       assert.deepEqual(spotifyAlbums, ['75eTM88MOWx11QY8V2bPiD']);
+    });
+
+    it('We Are Friends, Volume 8', async () => {
+      const spotifyAlbums = await augment.searchSpotifyAlbums('f62c8292-4b23-4ad1-818f-0b9c94139ed4');
+      assert.deepEqual(spotifyAlbums, ['1IFiPfRCcOFei774vVJOMS']);
+    });
+
+  });
+
+  describe('Augment', () => {
+
+    async function augmentRelease(mbid: string) {
+      const spotifyAlbums = await augment.searchSpotifyAlbums(mbid);
+      assert.deepEqual(spotifyAlbums, ['1IFiPfRCcOFei774vVJOMS']);
+
+      await augment.augmentReleaseWithSpotifyAlbum(mbid, spotifyAlbums[0]);
+    }
+
+    it('twice', async () => {
+      await augmentRelease('f62c8292-4b23-4ad1-818f-0b9c94139ed4');
     });
 
   });
