@@ -18,7 +18,7 @@
     "lint-md": "remark -u preset-lint-recommended .",
     "lint": "npm run lint-md && npm run lint-ts",
     "fix-lint": "tslint --fix 'src/**/*.ts' --exclude 'src/**/*.d.ts' 'test/**/*.ts' --exclude 'test/**/*.d.ts'",
-    "test": "mocha --require ts-node/register --full-trace test",
+    "test": "mocha --require ts-node/register --require source-map-support/register --full-trace test/*.ts",
     "build": "npm run clean && npm run compile",
     "start": "npm-run-all compile lint cover-test",
     "test-coverage": "nyc npm run test",
@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "debug": "^4.1.1",
-    "musicbrainz-api": "^0.3.10",
+    "musicbrainz-api": "^0.4.0",
     "spotify-web-api-node": "^4.0.0"
   },
   "repository": {

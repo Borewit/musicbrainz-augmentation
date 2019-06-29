@@ -35,6 +35,11 @@ const codeReference = `musicbrainz-augmentation v${pjson.version}, https://githu
 
 const editNoteSpotifyUrl = `Linked Spotify track with recording, based on release/album composition similarity: number of tracks, track length (±${releaseDeltaSettings.maxDeltaTrackDuration} sec.), album title, artist and track names.\n${codeReference}`;
 
+interface INamePair {
+  musicBrainz;
+  spotify: string;
+}
+
 export class AugmentFromSpotify {
 
   public static isSameRelease(mbRelease: mb.IRelease, spotifyAlbum: spotify.IAlbum): boolean {
@@ -61,31 +66,24 @@ export class AugmentFromSpotify {
           return false;
         }
 
-        let score = similarity(AugmentFromSpotify.normalizeTrackName(spotifyTrack.name), AugmentFromSpotify.normalizeTrackName(track.title));
-
-        if (score < releaseDeltaSettings.minTrackSimilarity) {
-          if (score < 0.15) {
-            debug(`Track name mismatch: score=${score}: Spotify: ${spotifyTrack.name}, MusicBrainz: ${track.title}`);
-            return false;
-          }
-          const spName = removeBrackets(spotifyTrack.name);
-          const mbName = removeBrackets(track.title);
-          score = similarity(spName, mbName);
-          if (score < releaseDeltaSettings.minTrackSimilarity) {
-            debug(`Track name mismatch: score=${score}: Spotify: ${spotifyTrack.name}, MusicBrainz: ${track.title}`);
-            return false;
+        if (!this.hasSimilarTrackName(spotifyTrack.name, track.title)) {
+          if (!this.hasSimilarTrackName(spotifyTrack.name, track.recording.title)) {
+            let matchingAlias = false;
+            for (const alias of track.recording.aliases) {
+              matchingAlias = this.hasSimilarTrackName(spotifyTrack.name, track.recording.title);
+              if (matchingAlias) break;
+            }
+            if (!matchingAlias)
+              return false;
           }
         }
 
         const deltaTrackLength = spotifyTrack.duration_ms - track.length;
         if (deltaTrackLength > releaseDeltaSettings.maxDeltaTrackDuration) {
-          debug(`Rec: score=${score}`);
           debug(`Track delta to high ${deltaTrackLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
-
           if (track.recording.length) {
             const deltaRecordingLength = spotifyTrack.duration_ms - track.recording.length;
             if (deltaRecordingLength > releaseDeltaSettings.maxDeltaTrackDuration) {
-              debug(`Rec: score=${score}`);
               debug(`Recording delta to high ${deltaRecordingLength}>${releaseDeltaSettings.maxDeltaTrackDuration} of ${medium.position}.${track.position} - ${track.title}`);
               return false;
             }
@@ -95,6 +93,45 @@ export class AugmentFromSpotify {
     }
     debug(`Found match`);
     return true;
+  }
+
+  public static hasSimilarTrackName(spotifyName: string, mbName: string): boolean {
+    const namePairs: INamePair[] = [];
+
+    let namePair: INamePair = {
+      spotify: AugmentFromSpotify.normalizeTrackName(spotifyName),
+      musicBrainz: AugmentFromSpotify.normalizeTrackName(mbName)
+    };
+    namePairs.push(namePair);
+
+    // Create a pair with stripped brackets
+    namePairs.push({
+      spotify: removeBrackets(namePair.spotify),
+      musicBrainz: removeBrackets(namePair.musicBrainz)
+    });
+
+    const minLen = Math.min(namePair.spotify.length, namePair.musicBrainz.length);
+    if (minLen >= 2 && (minLen < namePair.spotify.length || minLen < namePair.musicBrainz.length)) {
+      // Create a pair with stripped prefix
+      namePairs.push({
+        spotify: removeBrackets(namePair.spotify.substring(0, minLen)),
+        musicBrainz: removeBrackets(namePair.musicBrainz.substring(0, minLen))
+      });
+      // Create a pair with stripped suffix
+      namePairs.push({
+        spotify: removeBrackets(namePair.spotify.substring(namePair.spotify.length - minLen)),
+        musicBrainz: removeBrackets(namePair.musicBrainz.substring(namePair.musicBrainz.length - minLen))
+      });
+    }
+
+    for (namePair of namePairs) {
+      const score = similarity(AugmentFromSpotify.normalizeTrackName(namePair.spotify), AugmentFromSpotify.normalizeTrackName(namePair.musicBrainz));
+      debug(`Compare '${namePair.spotify}' with '${namePair.musicBrainz}' => score=${score} => ${score >= releaseDeltaSettings.minTrackSimilarity ? 'match' : 'no match'}`);
+      if (score >= releaseDeltaSettings.minTrackSimilarity) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static normalizeTrackName(trackName: string): string {
@@ -189,7 +226,7 @@ export class AugmentFromSpotify {
       artistNames = artistNames.filter(unique);
 
       titles.push(release.title);
-      titles.push(release.title.replace(/ *\([^)]*\) */g, "").trim());
+      titles.push(release.title.replace(/ *\([^)]*\) */g, '').trim());
       titles = titles.filter(unique).filter(s => s.length > 0);
 
       for (const title of titles) {
