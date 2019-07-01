@@ -335,12 +335,12 @@ export class AugmentFromSpotify {
             const spotify_isrc = AugmentFromSpotify.normalizeSpotifyIsrc(spotifyTrack.external_ids.isrc);
             debug(`spotify track: title='${spotifyTrack.name}' id=${spotifyTrack.id}, isrc=${spotify_isrc}`);
             assert(recording.isrcs, 'Expect recording.isrcs to be defined');
-            if (recording.isrcs.indexOf(spotify_isrc) >= 0) {
-              debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
-              assert(recording.isrcs, 'Expect recording.isrcs to be defined');
-            } else {
+            if (recording.isrcs.indexOf(spotify_isrc) === -1) {
               debug(`Add ISRC to recording='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
               recording.isrcs.push(spotify_isrc);
+            } else {
+              debug(`ISRC already present: title='${spotifyTrack.name}' mbid=${spotifyTrack.id}, isrc=${spotify_isrc}`);
+              assert(recording.isrcs, 'Expect recording.isrcs to be defined');
             }
           }
           // Add Spotify URL to recording, and update ISRC values
