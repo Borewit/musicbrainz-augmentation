@@ -299,13 +299,6 @@ export class AugmentFromSpotify {
               xmlRecording.isrcList.pushIsrc(spotify_isrc);
             }
           }
-          // Add Spotify URL to recording
-          debug(`Link recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]`);
-          try {
-            await this.mbClient.addSpotifyIdToRecording(track.recording, spotifyTrack.id, editNoteSpotifyUrl);
-          } catch (err) {
-            debug(`Failed to add Spotify link for recording[id=${track.recording.id}, title='${track.recording.title}'] to spotify[id=${spotifyTrack.id}]: ${err.message}`);
-          }
         }
       }
     }
