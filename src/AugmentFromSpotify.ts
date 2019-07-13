@@ -227,6 +227,9 @@ export class AugmentFromSpotify {
 
       titles.push(release.title);
       titles.push(release.title.replace(/ *\([^)]*\) */g, '').trim());
+      if (release.title.indexOf(':') !== -1) {
+        titles.push(release.title.split(':')[0]);
+      }
       titles = titles.filter(unique).filter(s => s.length > 0);
 
       for (const title of titles) {
